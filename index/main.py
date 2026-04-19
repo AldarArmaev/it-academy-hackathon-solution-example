@@ -96,23 +96,38 @@ FASTEMBED_CACHE_PATH = "/models/fastembed"
 # Важная переманная, которая позволяет вычислять sparse вектор в несколько ядер. Не рекомендуется изменять.
 UVICORN_WORKERS=8
 
-def render_message(message: Message) -> str:
-    text = ""
 
+def render_message(message: Message) -> str:
+    parts = []
+
+    if message.sender_id:
+        prefix = f"[{message.sender_id}]: "
+    else:
+        prefix = ""
+
+    # Основной текст
     if message.text:
-        text += message.text
+        parts.append(prefix + message.text)
 
     if message.parts:
-        parts_text: list[str] = []
         for part in message.parts:
-            # parts различаются по своему типу, см. README.md
             part_text = part.get("text")
             if isinstance(part_text, str) and part_text:
-                parts_text.append(part_text)
-        if parts_text:
-            text += "\n".join(parts_text)
+                parts.append(prefix + part_text)
 
-    return text
+    if message.file_snippets:
+        parts.append(f"[File]: {message.file_snippets}")
+
+    if message.member_event:
+        event = message.member_event
+        action = event.get("action", "performed an action")
+        user = event.get("user", {}).get("name", "Someone")
+        parts.append(f"[System] {user} {action}")
+
+    elif message.is_system:
+        parts.append("[System message]")
+
+    return "\n".join(parts)
 
 
 def build_chunks(
